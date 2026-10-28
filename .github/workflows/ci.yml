@@ -2,45 +2,52 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
   pull_request:
-    branches: [ main, master ]
+    branches: [main]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run ShellCheck
-      uses: ludeeus/action-shellcheck@master
-      with:
-        scandir: './scripts'
-      env:
-        SHELLCHECK_OPTS: -e SC1071
-
-  test-deploy:
+      - uses: actions/checkout@v4
+      
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './scripts'
+        env:
+          SHELLCHECK_OPTS: -e SC1091
+  
+  test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Test script syntax
-      run: |
-        bash -n scripts/deploy.sh
-        bash -n scripts/dispatch.sh
-        bash -n scripts/fleet-status.sh
-    
-    - name: Check config template validity
-      run: |
-        python3 -c "import json; json.load(open('config/picoclaw-fleet.json.example'))" || true
-
-  validate-docs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Check documentation
-      run: |
-        test -f SKILL.md
-        test -f README.md
-        test -f LICENSE
+      - uses: actions/checkout@v4
+      
+      - name: Check script permissions
+        run: |
+          echo "Checking all scripts are executable..."
+          for script in scripts/*.sh; do
+            if [[ -x "$script" ]]; then
+              echo "✓ $script is executable"
+            else
+              echo "✗ $script is NOT executable"
+              exit 1
+            fi
+          done
+      
+      - name: Validate bash syntax
+        run: |
+          echo "Validating bash syntax..."
+          for script in scripts/*.sh; do
+            bash -n "$script" || exit 1
+            echo "✓ $script syntax OK"
+          done
+      
+      - name: Check config files
+        run: |
+          echo "Checking config files are valid YAML..."
+          for config in config/*.yaml; do
+            python3 -c "import yaml; yaml.safe_load(open('$config'))" || exit 1
+            echo "✓ $config is valid YAML"
+          done
